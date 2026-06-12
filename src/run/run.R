@@ -1,7 +1,7 @@
 library(minfi)
-library(limma)
 library(jsonlite)
 source("helper.R")
+source("da_analysis.R")
 
 args = commandArgs(trailingOnly = TRUE)
 
@@ -13,28 +13,14 @@ options <- fromJSON(optionsFilePath)
 
 metadata <- read.table(file = inputFilePath, header = T, sep = "\t", check.names = F)
 
-# Convert 'Group' to factor with automatically generated levels
-metadata = get_updated_metadata(metadata)
-
 # get m-values
 m_values = get_m_values(metadata, options)
 
-# Create design matrix
-design = get_model_matrix(metadata)
-
-colnames(design) <- levels(metadata$condition)
-
-# Fit linear model for M-values
-fit <- lmFit(m_values, design)
-
-# Apply empirical Bayes moderation
-fit2 <- eBayes(fit)
-
-# Get the coefficient
-coeffOpt <- get_coeff(coefficients)
-
-# Get differential methylation results
-results <- topTable(fit2, coef = coeffOpt, number = Inf, adjust = "fdr")
+# do the differential expression analysis
+results <- da_analysis(data_matrix=m_values,
+            condition=metadata$condition,
+            ref_category = tail(metadata$condition,1) # assign the second (i.e. last) condition as the reference category
+            )
 
 # Binding CpgId to results
 results <- cbind(CpgId = rownames(results), results)
